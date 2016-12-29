@@ -1,10 +1,10 @@
-# keirin
+# Keirin
 
 Proof of concept microbenchmarking library for Clojure.
 
 
 ## Building
-To build keirin, clone this repo, make the directory containing project.clj your current directory and run:
+To build Keirin, clone this repo, make the directory containing project.clj your current directory and run:
 
      lein install
 
@@ -16,7 +16,7 @@ If leinigen is being used, add the following dependency to the project.clj
 
      [keirin "0.1.0-SNAPSHOT"]
 
-kierin also requires that garbage collections are logged to a file called "gc.out". In a leinigen project this can be achieved by adding
+Keirin also requires that garbage collections are logged to a file called "gc.out". In a leinigen project this can be achieved by adding
 
        :jvm-opts ^:replace ["-Xloggc:gc.out"]
 
@@ -40,7 +40,7 @@ And to benchmark some code, wrap it in a lambda and call **k/bench** e.g.
 
 
 ## How it works
-Firstly, the benchmarked code is run multiple times to warm up the Hotspot compiler. There are then multiple timed runs of the benchmarked code. Prior to each timed run, keirin tries to force a GC. And if a GC occurs during the timed section of the run, then this run is not included in the output statistics. Keirin detects if a GC has occurred in the timed section of a run by monitoring the "gc.out" log file.
+Firstly, the benchmarked code is run multiple times to warm up the Hotspot compiler. There are then multiple timed runs of the benchmarked code. Prior to each timed run, Keirin tries to force a GC. And if a GC occurs during the timed section of the run, then this run is not included in the output statistics. Keirin detects if a GC has occurred in the timed section of a run by monitoring the "gc.out" log file.
 
 
 ## Rationale
@@ -72,9 +72,9 @@ produces the following output in 40 seconds:
       :mean 17.8966679, 
       :std 1.4342384951454172}
 
-The tight sample standard deviation of 3.6 milliseconds indicates that the time provided by Keirin of 20.3 milliseconds is reasonably accurate.
+The tight sample standard deviation of 1.43 milliseconds indicates that the time provided by Keirin of 17.9 milliseconds is reasonably accurate.
 
-At this point I am not clear whether this is just an edge case or if Kierin will be more generally useful. Certainly Criterium works for most people most of the time.
+At this point I am not clear whether this is just an edge case or if Keirin will be more generally useful. Certainly Criterium works for most people most of the time.
 
 
 ## License
