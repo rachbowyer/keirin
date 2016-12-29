@@ -17,7 +17,7 @@
 (def ^:private gc-output-file "gc.out")
 (def ^:private gc-attempts 5)
 (def ^:private warm-up 5)
-(def ^:private num-trials 20)
+(def ^:private default-num-trials 20)
 (def ^:private max-failures 10)
 
 
@@ -99,15 +99,14 @@
        :time-taken (/ (- end start) 1000000.0)})))
 
 
-(defn- iterate-bench [payload & {:keys [verbose] :as options}]
+(defn- iterate-bench [payload & {:keys [verbose num-trials] :as options}]
   (loop [gc-occurred-count   0
          iters               0
          times               []]
 
     (when verbose
       (println "Running trial..."))
-    (let [{:keys [gc-occurred :time-taken]} (if options (bench-one payload :verbose verbose)
-                                                        (bench-one payload))
+    (let [{:keys [gc-occurred :time-taken]} (apply bench-one payload (-> options seq flatten))
           new-gc-occurred-count             (cond-> gc-occurred-count gc-occurred inc)
           new-iters                         (cond-> iters (not gc-occurred) inc)
           new-times                         (cond-> times (not gc-occurred) (conj time-taken))]
@@ -120,7 +119,9 @@
         times
         (recur new-gc-occurred-count new-iters new-times)))))
 
-(defn bench [payload & {:keys [verbose] :as options}]
+(defn bench* [payload & {:keys [verbose num-trials]
+                        :or {num-trials default-num-trials}
+                        :as options}]
   (ensure-gc-options!)
 
   (when verbose
@@ -129,10 +130,11 @@
   (when verbose
     (println "JVM warmed up"))
 
-  (let [results (if options (iterate-bench payload :verbose verbose)
-                            (iterate-bench payload))]
+  (let [results (apply iterate-bench payload (-> options (merge {:num-trials num-trials}) seq flatten))]
     {:trials          (count results)
      :failed-trials   (- num-trials (count results))
      :mean            (double (mean results))
      :std             (sample-standard-deviation results)}))
 
+(defmacro bench [payload & options]
+  `(bench* (fn [] ~payload) ~@options))

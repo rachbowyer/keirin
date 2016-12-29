@@ -4,7 +4,7 @@ Proof of concept microbenchmarking library for Clojure.
 
 
 ## Building
-To build Keirin, clone this repo, make the directory containing project.clj your current directory and run:
+To build Keirin, clone this repo, change the current directory to the directory containing project.clj and run:
 
      lein install
 
@@ -18,25 +18,33 @@ If leinigen is being used, add the following dependency to the project.clj
 
 Keirin also requires that garbage collections are logged to a file called "gc.out". In a leinigen project this can be achieved by adding
 
-       :jvm-opts ^:replace ["-Xloggc:gc.out"]
+    :jvm-opts ^:replace ["-Xloggc:gc.out"]
+
+It is also recommended that the JVM is run in "server" mode to ensure that JVM optimizations are applied:
+
+    :jvm-opts ^:replace ["-server" "-Xloggc:gc.out"]
 
 
 ## Usage
-To make the keirin functions available do:
+To make the Keirin functions available type:
 
      (require '[keirin.core :as k])
 
 
-And to benchmark some code, wrap it in a lambda and call **k/bench** e.g. 
+And to benchmark some code call **k/bench** e.g. 
 
-     (k/bench #(Thread/sleep 500))
-     ;; => {:trials 10, :failed-trials 0, :mean 502.4019938, 
-     ;;     :std 1.4276895025571792}
+    (k/bench (Thread/sleep 500))
+    ;; => {:trials 20, :failed-trials 0, 
+           :mean 502.47546124999997, :std 1.5610682393241542}
 
  * Trials is the number of times that **Thread/sleep** was executed successfully 
  * Failed trials is the number of times that **Thread/sleep** was executed and a garbage collection occurred
  * Mean is the mean time that **Thread/sleep** ran taken across the successful trials in milliseconds
  * Std is the sample standard deviation of the time taken across the successful trials in milliseconds
+
+**k/bench** takes two optional arguments: :trials, the number of times that the benchmarked code is run and :verbose, which provides extended output. For example: 
+
+    (k/bench (Thread/sleep 500) :num-trials 2 :verbose true)
 
 
 ## How it works
@@ -52,7 +60,7 @@ For example, benchmarking the following code with Criterium:
      (let [data (doall (range 1000000))]
         (c/bench (vec data)))
 
-takes over 10 minues and produces the following output:
+takes over 10 minutes and produces the following output:
 
              Execution time mean : 127.417564 ms
     Execution time std-deviation : 238.954458 ms
@@ -63,16 +71,17 @@ Keirin was designed so that its results are not impacted by the garbage collecto
 
      (require '[keirin.core :as k])
      (let [data (doall (range 1000000))]
-       (k/bench #(vec data)))
+       (k/bench (vec data)))
 
 produces the following output in 40 seconds:
 
-     {:trials 10, 
+     {:trials 20, 
       :failed-trials 0, 
-      :mean 17.8966679, 
-      :std 1.4342384951454172}
+      :mean 16.745633050000002, 
+      :std 0.8349223686048823}
 
-The tight sample standard deviation of 1.43 milliseconds indicates that the time provided by Keirin of 17.9 milliseconds is reasonably accurate.
+
+The tight sample standard deviation of 0.83 milliseconds indicates that the time provided by Keirin of 16.7 milliseconds is reasonably accurate.
 
 At this point I am not clear whether this is just an edge case or if Keirin will be more generally useful. Certainly Criterium works for most people most of the time.
 
