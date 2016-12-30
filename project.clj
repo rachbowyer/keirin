@@ -10,6 +10,7 @@
   :url "https://github.com/rachbowyer/keirin"
   :license {:name "Eclipse Public License"
             :url "http://www.eclipse.org/legal/epl-v10.html"}
+  ;:jvm-opts ^:replace ["-server" "-verbose:gc"]
   :jvm-opts ^:replace ["-server" "-Xloggc:gc.out"]
   :dependencies [[org.clojure/clojure "1.8.0"]]
   :main ^:skip-aot keirin.core

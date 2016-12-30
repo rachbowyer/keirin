@@ -84,8 +84,9 @@
   (when verbose
     (println "Requesting GC..."))
   (request-gc)
+  (Thread/sleep 300) ;; Let any GC finish
   (when verbose
-    println "GC requested")
+    (println "GC requested"))
 
   (let [gc-file-before (read-gc-file)
         start (System/nanoTime)]
@@ -106,13 +107,13 @@
 
     (when verbose
       (println "Running trial..."))
-    (let [{:keys [gc-occurred :time-taken]} (apply bench-one payload (-> options seq flatten))
-          new-gc-occurred-count             (cond-> gc-occurred-count gc-occurred inc)
-          new-iters                         (cond-> iters (not gc-occurred) inc)
-          new-times                         (cond-> times (not gc-occurred) (conj time-taken))]
+    (let [{:keys [gc-occurred time-taken]} (apply bench-one payload (-> options seq flatten))
+          new-gc-occurred-count            (cond-> gc-occurred-count gc-occurred inc)
+          new-iters                        (cond-> iters (not gc-occurred) inc)
+          new-times                        (cond-> times (not gc-occurred) (conj time-taken))]
 
       (when verbose
-        (println "Trial complete"))
+        (println "Trial complete " time-taken "ms GC occurred " gc-occurred))
 
       (if (or (> new-gc-occurred-count max-failures)
               (> new-iters num-trials))
