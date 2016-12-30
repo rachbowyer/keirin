@@ -1,5 +1,7 @@
 # Keirin
 
+![Picture of a Keirin race taking place in a banked velodrome. A motorcycle is at the front, behind which are 6 cyclists](https://github.com/rachbowyer/keirin/blob/master/ColwoodKeirin.jpg)
+
 Proof of concept microbenchmarking library for Clojure.
 
 
@@ -48,13 +50,29 @@ And to benchmark some code call **k/bench** e.g.
 
 
 ## How it works
-Firstly, the benchmarked code is run multiple times to warm up the Hotspot compiler. There are then multiple timed runs of the benchmarked code. Prior to each timed run, Keirin tries to force a GC. And if a GC occurs during the timed section of the run, then this run is not included in the output statistics. Keirin detects if a GC has occurred in the timed section of a run by monitoring the "gc.out" log file.
+Firstly, the benchmarked code is run multiple times to warm up the Hotspot compiler. There are then multiple timed runs of the benchmarked code. Prior to each timed run, Keirin tries to force a GC. 
+
+If a GC occurs during the timed section of the run, then this run is not included in the output statistics. Keirin detects if a GC has occurred in the timed section of a run by monitoring the "gc.out" log file.
+
+Class loading
+
+Code compilation
+
+Remove of outliers
 
 
-## Rationale
-The gold standard for microbenchmarking in Clojure is ["Criterium"](https://github.com/hugoduncan/criterium). However, I ran into two problems with it during benchmarking for the book I am contributing to, ["The Clojure Standard Library"](https://www.manning.com/books/clojure-standard-library): Criterium can be slow and the results can be impacted by garbage collection.
 
-For example, benchmarking the following code with Criterium:
+## Benchmarking best practice
+
+
+## Detecting if GC or code compilation occurs during a run
+
+
+
+## The rationale for Keirin
+The gold standard for microbenchmarking in Clojure is ["Criterium"](https://github.com/hugoduncan/criterium). However, I ran into two problems with it during benchmarking for the book I am contributing to, ["The Clojure Standard Library"](https://www.manning.com/books/clojure-standard-library): Criterium can be slow and the results can be impacted by outliers.
+
+For example, benchmarking the following code with Criterium on my Macbook:
 
      (require '[criterium.code :as c])
      (let [data (doall (range 1000000))]
@@ -62,12 +80,17 @@ For example, benchmarking the following code with Criterium:
 
 takes over 10 minutes and produces the following output:
 
-             Execution time mean : 127.417564 ms
-    Execution time std-deviation : 238.954458 ms
+             Execution time mean : 90.325077 ms
+    Execution time std-deviation : 155.623628 ms
 
-The sample standard deviation is so high that it is not safe to rely upon the result.
+The sample standard deviation is so high that it is not safe to rely upon the result. However, when I run the same code on my desktop I get:
 
-Keirin was designed so that its results are not impacted by the garbage collector, hopefully resulting in more accurate numbers. Running the same example in Keirin:
+             Execution time mean : 16.532982 ms
+    Execution time std-deviation : 2.915590 ms
+
+The lower standard deviation indicates this result is likely to be more trustworthy.
+
+Keirin was designed so that its results are less impacted by outliers, hopefully resulting in more accurate and consistent numbers. Running the same example in Keirin on my Macbook:
 
      (require '[keirin.core :as k])
      (let [data (doall (range 1000000))]
@@ -86,6 +109,13 @@ The tight sample standard deviation of 0.83 milliseconds indicates that the time
 At this point I am not clear whether this is just an edge case or if Keirin will be more generally useful. Certainly Criterium works for most people most of the time.
 
 
-## License
+## License for Keirin
 
 Distributed under the Eclipse Public License either version 1.0.
+
+
+## Image of a Keirin race
+Courtesy of [FigBug] (https://en.wikipedia.org/wiki/User:FigBug) used under the terms of CC BY-SA 3.0.
+
+
+
