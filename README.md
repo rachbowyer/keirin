@@ -67,10 +67,10 @@ And to benchmark some code call **k/bench** e.g.
  2) Compile down to a jar and run the code as a jar, rather than run from the REPL as the REPL introduces noise.
 
  3) Configure the JVM correctly. For example the following options are useful:
-   "-server" - enables server side JVM optimisations 
-   "-Xbatch" - disable background compilation
-   "-XX:CICompilerCount=1" - only 1 thread allowed to compile code
-   "-XX:-TieredCompilation" - disables tierd compilation. Need to allow only 1 thread for the compiled code. 
+  * "-server" - enables server side JVM optimisations 
+  * "-Xbatch" - disable background compilation
+  * "-XX:CICompilerCount=1" - only 1 thread allowed to compile code
+  * "-XX:-TieredCompilation" - disables tiered compilation. Need to allow only 1 thread for the compiled code. 
 
 
 ## Rationale for Keirin
