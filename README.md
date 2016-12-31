@@ -7,15 +7,15 @@ distort benchmarks.
 
 Keirin takes a three pronged approach to the problem.
 
- 1) Takes steps to avoid unpredicable events:
-  * warming up the JIT to ensure code is compiled 
-  * forcing a GC to reduce the chance of a GC during a test run
+1) Takes steps to avoid unpredicable events:
+ * warming up the JIT to ensure code is compiled 
+ * forcing a GC to reduce the chance of a GC during a test run
 
- 2) Detecting background events (GC, code compilation, class loading and unloading) when they occur during a trial run and discarding this run.
+2) Detecting background events (GC, code compilation, class loading and unloading) when they occur during a trial run and discarding this run.
 
- 3) Using statistical techniques to minimize the impact of outliers:
-   * Performing multiple sets of runs and choosing the run with the lowest sample standard deviation
-   * Using the median rather than the mean.
+3) Using statistical techniques to minimize the impact of outliers:
+ * Performing multiple sets of runs and choosing the run with the lowest sample standard deviation
+ * Using the median rather than the mean.
 
 
 ## Building
