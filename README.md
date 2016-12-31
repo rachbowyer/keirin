@@ -81,13 +81,6 @@ Keirin takes a different approach to the problem. Rather than achieve a steady s
 The hope with Keirin is to provide more reliably results and faster results than Criterium in less than ideal environments - e.g. from a REPL on a low powered Macbook.
 
 
-## Todo
- 1) Compile with direct linking enabled
- 2) Do a final GC and add the time of this to the results
- 3) New runtime parameter - :num-of-sets 
- 4) Experiment with the default of 6 sets of 10 runs.
-
-
 ## License for Keirin
 
 Distributed under the Eclipse Public License either version 1.0.
