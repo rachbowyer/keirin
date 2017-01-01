@@ -55,7 +55,7 @@ And to benchmark some code call **k/bench** e.g.
  * :gc-failures, :compilation-failures and :class-loading-failures are the number of times that a run failed due to GC, compilation, class loading/unloading respectively
  * :median is the median time that **Thread/sleep** ran taken across the trials in the chosen set in milliseconds
  * :std is the sample standard deviation of the time taken across the successful trials in the chosen set of runs
-* :final-gc-time is the time in milliseconds of a GC run at the end of the set of runs. 
+ * :final-gc-time is the time in milliseconds of a GC run at the end of the set of runs. 
 
 **k/bench** takes three optional arguments: 
  * :trials the number of times that the benchmarked code is run. Defaults to 10.
