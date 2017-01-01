@@ -43,21 +43,28 @@ To make the Keirin functions available type:
 And to benchmark some code call **k/bench** e.g. 
 
     (k/bench (Thread/sleep 500))
-    ;; => {:trials 10,
-    ;;     :gc-failures 0, 
-    ;;     :compilation-failures 0, 
-    ;;     :class-loading-failures 0,
-    ;;     :median 501.9638185,
-    ;;     :std 1.1136650738771838}
+    ;; {:trials 10,
+    ;;  :gc-failures 0,
+    ;;  :compilation-failures 0,
+    ;;  :class-loading-failures 0,
+    ;;  :median 502.18097, 
+    ;;  :std 0.29852747773289984, 
+    ;;  :final-gc-time 0.024599247}
 
  * :trials is the number of times that **Thread/sleep** was executed successfully in the set of runs that was chosen 
  * :gc-failures, :compilation-failures and :class-loading-failures are the number of times that a run failed due to GC, compilation, class loading/unloading respectively
  * :median is the median time that **Thread/sleep** ran taken across the trials in the chosen set in milliseconds
  * :std is the sample standard deviation of the time taken across the successful trials in the chosen set of runs
+* :final-gc-time is the time in milliseconds of a GC run at the end of the set of runs. 
 
-**k/bench** takes two optional arguments: :trials, the number of times that the benchmarked code is run and :verbose, which provides extended output. For example: 
+**k/bench** takes three optional arguments: 
+ * :trials the number of times that the benchmarked code is run. Defaults to 10.
+ * :num-sets the number of sets of runs. Defaults to 6. 
+ * :verbose a boolean, which provides extended output. 
 
-    (k/bench (Thread/sleep 500) :num-trials 2 :verbose true)
+For example: 
+
+    (k/bench (Thread/sleep 500) :num-trials 5 :num-sets 3 :verbose true)
 
 
 ## Benchmarking best practice

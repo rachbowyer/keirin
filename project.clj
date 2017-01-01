@@ -12,7 +12,7 @@
             :url "http://www.eclipse.org/legal/epl-v10.html"}
 
   ;:jvm-opts ^:replace ["-server" "-verbose:gc" "-XX:+PrintCompilation"]
-  :jvm-opts ^:replace ["-server" "-Xloggc:gc.out" "-XX:-TieredCompilation" "-Xbatch" "-XX:CICompilerCount=1"]
+  :jvm-opts ^:replace ["-Dclojure.compiler.direct-linking=true" "-server" "-Xloggc:gc.out" "-XX:-TieredCompilation" "-Xbatch" "-XX:CICompilerCount=1"]
 
   :dependencies [[org.clojure/clojure "1.8.0"]]
   :target-path "target/%s"

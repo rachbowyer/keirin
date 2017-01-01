@@ -30,7 +30,7 @@
 (def ^:private gc-output-file "gc.out")
 (def ^:private gc-attempts 5)
 (def ^:private default-num-trials 10)
-(def ^:private num-sets 6)
+(def ^:private default-num-sets 6)
 (def ^:private max-gc-failures 10)
 (def ^:private max-compilation-failures 10)
 (def ^:private max-class-loading-failures 5)
@@ -139,23 +139,25 @@
   (when verbose
     (println "GC requested"))
 
-  (let [compilation-bean          (ManagementFactory/getCompilationMXBean)
-        class-loading-bean        (ManagementFactory/getClassLoadingMXBean)
-        class-loaded-before       (.getTotalLoadedClassCount class-loading-bean)
-        class-unloaded-before     (.getUnloadedClassCount class-loading-bean)
-        compilation-time-before   (.getTotalCompilationTime compilation-bean)
-        gc-file-before            (read-gc-file)
-        start                     (System/nanoTime)
-        result                    (payload)]
+  (let [compilation-bean            (ManagementFactory/getCompilationMXBean)
+        compilation-time-supported  (.isCompilationTimeMonitoringSupported compilation-bean)
+        class-loading-bean          (ManagementFactory/getClassLoadingMXBean)
+        class-loaded-before         (.getTotalLoadedClassCount class-loading-bean)
+        class-unloaded-before       (.getUnloadedClassCount class-loading-bean)
+        compilation-time-before     (and compilation-time-supported (.getTotalCompilationTime compilation-bean))
+        gc-file-before              (read-gc-file)
+        start                       (System/nanoTime)
+        result                      (payload)]
 
-    (let [end                     (System/nanoTime)
-          compilation-time-after  (.getTotalCompilationTime compilation-bean)
-          class-loaded-after      (.getTotalLoadedClassCount class-loading-bean)
-          class-unloaded-after    (.getUnloadedClassCount class-loading-bean)
-          _                       (Thread/sleep 300) ;; Let GC file catch up
-          gc-file-end             (read-gc-file)]
+    (let [end                       (System/nanoTime)
+          compilation-time-after    (and compilation-time-supported (.getTotalCompilationTime compilation-bean))
+          class-loaded-after        (.getTotalLoadedClassCount class-loading-bean)
+          class-unloaded-after      (.getUnloadedClassCount class-loading-bean)
+          _                         (Thread/sleep 300) ;; Let GC file catch up
+          gc-file-end               (read-gc-file)]
 
-      (reset! trial-result result) ; Ensure JVM does not optimise away the call to (payload)
+      ;; Ensure JVM does not optimise away the call to (payload)
+      (reset! trial-result result)
 
       {:gc-occurred (not= gc-file-before gc-file-end)
        :compilation-occurred (not= compilation-time-before compilation-time-after)
@@ -183,7 +185,7 @@
           new-times                        (cond-> times (not failure) (conj time-taken))]
 
       (when verbose
-        (println "Trial complete " time-taken "ms. GC occurred " gc-occurred
+        (println "Run complete " time-taken "ms. GC occurred " gc-occurred
                  ". Compilation occurred " compilation-occurred
                  ". Class loading occurred " class-loading-occured "."))
 
@@ -224,27 +226,40 @@
 (defn- bench-one-set [payload & {:keys [verbose num-trials]
                                  :or {num-trials default-num-trials}
                                  :as options}]
-  (warn-gc-options!)
-  (warm-up! payload verbose)
-
   (let [{:keys [data gc-failures compilation-failures class-loading-failures]}
         (apply iterate-bench payload (-> options (merge {:num-trials num-trials}) seq flatten))]
 
+    ;; Do final GC and measure time - to ensure there is not a big GC mess
     (when verbose
-      (pprint/pprint data))
+      (println "Starting final GC..."))
 
-    {:trials                  (count data)
-     :gc-failures             gc-failures
-     :compilation-failures    compilation-failures
-     :class-loading-failures  class-loading-failures
-     ;:mean                    (double (mean data))
-     :median                  (median data)
-     :std                     (sample-standard-deviation data)}))
+    (let [start-time (System/nanoTime)]
+      (force-gc)
+      (let [end-time (System/nanoTime)]
+
+        (when verbose
+          (println "Final GC complete"))
+
+        (when verbose
+          (pprint/pprint data))
+
+        {:trials                  (count data)
+         :gc-failures             gc-failures
+         :compilation-failures    compilation-failures
+         :class-loading-failures  class-loading-failures
+         ;:mean                    (double (mean data))
+         :median                  (median data)
+         :std                     (sample-standard-deviation data)
+         :final-gc-time           (/ (- end-time start-time) 1000000000.0)}))))
+
 
 (defn bench*
   "Run multiple sets of trial runs and take the set with the lowest
    standard deviation"
-  [payload & {:keys [verbose] :as options}]
+  [payload & {:keys [verbose num-sets] :or {num-sets default-num-sets} :as options}]
+  (warn-gc-options!)
+  (warm-up! payload verbose)
+
   (->> (for [i (range num-sets)]
          (do
            (when verbose
