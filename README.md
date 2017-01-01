@@ -17,19 +17,10 @@ Keirin takes a three pronged approach to the problem.
  * Performing multiple sets of runs and choosing the run with the lowest sample standard deviation
  * Using the median rather than the mean.
 
-
-## Building
-To build Keirin, clone this repo, change the current directory to the directory containing project.clj and run:
-
-     lein install
-
-This creates an uberjar and installs it into the local maven.
-
-
 ## Installation
 If leinigen is being used, add the following dependency to the project.clj
 
-     [keirin "0.1.0-SNAPSHOT"]
+     [keirin "0.1.0"]
 
 Keirin works most optimally if garbage collections are logged to a file called "gc.out". This can be done by adding the following JVM option -Xloggc:gc.out.
 
@@ -58,7 +49,7 @@ And to benchmark some code call **k/bench** e.g.
  * :final-gc-time is the time in milliseconds of a GC run at the end of the set of runs. 
 
 **k/bench** takes three optional arguments: 
- * :trials the number of times that the benchmarked code is run. Defaults to 10.
+ * :num-trials the number of times that the benchmarked code is run. Defaults to 10.
  * :num-sets the number of sets of runs. Defaults to 6. 
  * :verbose a boolean, which provides extended output. 
 
