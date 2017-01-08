@@ -22,7 +22,7 @@ Keirin takes a four pronged approach to the problem.
 ## Installation
 If leinigen is being used, add the following dependency to the project.clj
 
-     [keirin "0.2.0"]
+     [keirin "0.1.1"]
 
 Keirin works most optimally if garbage collections are logged to a file. This can be done by adding the following JVM option -Xloggc:gc.out.
 
