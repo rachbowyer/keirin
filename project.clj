@@ -5,7 +5,7 @@
 ;; which accompanies this distribution, and is available at
 ;; http://www.eclipse.org/legal/epl-v10.html
 
-(defproject keirin "0.1.0"
+(defproject keirin "0.1.1"
   :description "Microbenchmarking library for Clojure"
   :url "https://github.com/rachbowyer/keirin"
   :license {:name "Eclipse Public License"

@@ -12,7 +12,7 @@
 
 
 ;; Inspired by the article http://www.ibm.com/developerworks/java/library/j-benchmark1/index.html
-;; by Brent Boyer.
+;; by Brent Boyer and Criterium bench marking library for Clojure (see above)
 
 
 (ns keirin.core
@@ -27,10 +27,10 @@
 
 (def ^:private warm-up-executions 10)
 (def ^:private warm-up-time 10) ; seconds
-(def ^:private gc-output-file "gc.out")
 (def ^:private gc-attempts 5)
-(def ^:private default-num-trials 10)
-(def ^:private default-num-sets 6)
+(def ^:private default-num-timed-runs 30)
+(def ^:private default-num-timed-runs-quick 7)
+(def ^:private default-min-execution-time 300) ; millis
 (def ^:private max-gc-failures 10)
 (def ^:private max-compilation-failures 10)
 (def ^:private max-class-loading-failures 5)
@@ -100,7 +100,7 @@
          (dec num)))))
 
 (defn- sample-standard-deviation [data]
-  (Math/sqrt (sample-variance data)))
+  (some-> data sample-variance Math/sqrt))
 
 
 (defn- median [data]
@@ -117,27 +117,66 @@
 ;;;
 
 
-(defn- warn-gc-options! []
-  (let [required-option (str "-Xloggc:" gc-output-file)
-        jvm-options (.getInputArguments (ManagementFactory/getRuntimeMXBean))]
-    (when-not (some #(= % required-option) jvm-options)
-      (println "WARNING. JVM option: " required-option " is not set. Keirin is unable to detect "
-               "if a GC occurs during a trial run"))))
+; For unit test
+;(parse-gc-file-name "-Xloggc:gc.out")
+;=> "gc.out"
 
-(defn- read-gc-file []
-  (if (.exists (io/as-file gc-output-file))
-    (slurp gc-output-file)
+(defn- parse-gc-file-name [jvm-arg]
+  (let [[_ gc-file] (re-find #"^-Xloggc:(.*?)$" jvm-arg)]
+    gc-file))
+
+(defn- get-gc-file-name []
+  (let [jvm-options (.getInputArguments (ManagementFactory/getRuntimeMXBean))]
+        (some parse-gc-file-name jvm-options)))
+
+
+
+(defn- read-gc-file [gc-file-name]
+  (if (.exists (io/as-file gc-file-name))
+    (slurp gc-file-name)
     ""))
 
-(def trial-result (atom nil))
+(defprotocol TimedRunResultAccessor
+  (set-result [_ v] )
+  (get-hash-code [_]))
 
-(defn- bench-one [payload & {:keys [verbose]}]
+(deftype TimedRunResultType [^{:unsynchronized-mutable true :tag Object} v]
+  TimedRunResultAccessor
+  (set-result [_ value] (set! v value))
+  (get-hash-code [_] (some-> v .hashCode)))
+
+(def timed-run-result (TimedRunResultType. nil))
+
+
+(defn- execute-once [f]
+  (let [start (System/nanoTime)
+        result (f)]
+
+    (let [end (System/nanoTime)]
+      {:time-taken (/ (- end start) 1000000.0)
+       :result-hash-code (some-> result .hashCode)})))
+
+
+(defn- execute-many [f n]
+  (let [start  (System/nanoTime)]
+
+    (loop [i 0]
+      (when (< i n)
+        (set-result timed-run-result (f))
+        (recur (unchecked-inc i))))
+
+    (let [end (System/nanoTime)]
+      {:time-taken (/ (- end start) 1000000.0 n)
+       :result-hash-code (get-hash-code timed-run-result)})))
+
+
+(defn- bench-one [payload gc-file-name n & {:keys [verbose]}]
   (when verbose
     (println "Requesting GC..."))
   (force-gc)
   (Thread/sleep 300) ;; Let any GC finish
   (when verbose
-    (println "GC requested"))
+    (println "GC complete"))
 
   (let [compilation-bean            (ManagementFactory/getCompilationMXBean)
         compilation-time-supported  (.isCompilationTimeMonitoringSupported compilation-bean)
@@ -145,28 +184,25 @@
         class-loaded-before         (.getTotalLoadedClassCount class-loading-bean)
         class-unloaded-before       (.getUnloadedClassCount class-loading-bean)
         compilation-time-before     (and compilation-time-supported (.getTotalCompilationTime compilation-bean))
-        gc-file-before              (read-gc-file)
-        start                       (System/nanoTime)
-        result                      (payload)]
+        gc-file-before              (read-gc-file gc-file-name)
+        {:keys [result-hash-code time-taken]}
+        (if (= n 1) (execute-once payload) (execute-many payload n))
+        compilation-time-after      (and compilation-time-supported (.getTotalCompilationTime compilation-bean))
+        class-loaded-after          (.getTotalLoadedClassCount class-loading-bean)
+        class-unloaded-after        (.getUnloadedClassCount class-loading-bean)
+        _                           (Thread/sleep 300) ;; Let GC file catch up
+        gc-file-end                 (read-gc-file gc-file-name)]
 
-    (let [end                       (System/nanoTime)
-          compilation-time-after    (and compilation-time-supported (.getTotalCompilationTime compilation-bean))
-          class-loaded-after        (.getTotalLoadedClassCount class-loading-bean)
-          class-unloaded-after      (.getUnloadedClassCount class-loading-bean)
-          _                         (Thread/sleep 300) ;; Let GC file catch up
-          gc-file-end               (read-gc-file)]
-
-      ;; Ensure JVM does not optimise away the call to (payload)
-      (reset! trial-result result)
 
       {:gc-occurred (not= gc-file-before gc-file-end)
        :compilation-occurred (not= compilation-time-before compilation-time-after)
        :class-loading-occured (or (not= class-loaded-before class-loaded-after)
                                   (not= class-unloaded-before class-unloaded-after))
-       :time-taken (/ (- end start) 1000000.0)})))
+       :time-taken time-taken
+       :result-hash-code result-hash-code}))
 
 
-(defn- iterate-bench [payload & {:keys [verbose num-trials] :as options}]
+(defn- iterate-bench [payload gc-file-name n & {:keys [verbose num-timed-runs] :as options}]
   (loop [gc-failure-count             0
          compilation-failure-count    0
          class-loading-failure-count  0
@@ -174,26 +210,28 @@
          times                        []]
 
     (when verbose
-      (println "Running trial..."))
-    (let [{:keys [gc-occurred compilation-occurred class-loading-occured time-taken]}
-          (apply bench-one payload (-> options seq flatten))
+      (println "Starting timed run..."))
+    (let [{:keys [gc-occurred compilation-occurred class-loading-occured time-taken result-hash-code]}
+          (apply bench-one payload gc-file-name n (-> options seq flatten))
           failure                          (or gc-occurred compilation-occurred class-loading-occured)
           new-gc-failure-count             (cond-> gc-failure-count gc-occurred inc)
           new-compilation-failure-count    (cond-> compilation-failure-count compilation-occurred inc)
           new-class-loading-failure-count  (cond-> class-loading-failure-count class-loading-occured inc)
           new-iters                        (cond-> iters (not failure) inc)
-          new-times                        (cond-> times (not failure) (conj time-taken))]
+          new-times                        (cond-> times (not failure) (conj {:time-taken       time-taken
+                                                                              :result-hash-code result-hash-code}))]
 
       (when verbose
         (println "Run complete " time-taken "ms. GC occurred " gc-occurred
                  ". Compilation occurred " compilation-occurred
-                 ". Class loading occurred " class-loading-occured "."))
+                 ". Class loading occurred " class-loading-occured
+                 ". Result hash code " result-hash-code ". "))
 
       (if (or (>= new-gc-failure-count max-gc-failures)
               (>= new-compilation-failure-count max-compilation-failures)
               (>= new-class-loading-failure-count max-class-loading-failures)
-              (> new-iters num-trials))
-        {:data                    times
+              (>= new-iters num-timed-runs))
+        {:data                    new-times
          :gc-failures             new-gc-failure-count
          :compilation-failures    new-compilation-failure-count
          :class-loading-failures  new-class-loading-failure-count}
@@ -223,11 +261,12 @@
     (println "JVM warmed up. Iterations " iterations ". Time taken " time "."))))
 
 
-(defn- bench-one-set [payload & {:keys [verbose num-trials]
-                                 :or {num-trials default-num-trials}
-                                 :as options}]
+(defn- bench-one-set [payload gc-file-name n & {:keys [verbose num-timed-runs]
+                                                :or {num-timed-runs default-num-timed-runs}
+                                                :as options}]
+
   (let [{:keys [data gc-failures compilation-failures class-loading-failures]}
-        (apply iterate-bench payload (-> options (merge {:num-trials num-trials}) seq flatten))]
+        (apply iterate-bench payload gc-file-name n (-> options (merge {:num-timed-runs num-timed-runs}) seq flatten))]
 
     ;; Do final GC and measure time - to ensure there is not a big GC mess
     (when verbose
@@ -243,30 +282,60 @@
         (when verbose
           (pprint/pprint data))
 
-        {:trials                  (count data)
-         :gc-failures             gc-failures
-         :compilation-failures    compilation-failures
-         :class-loading-failures  class-loading-failures
-         ;:mean                    (double (mean data))
-         :median                  (median data)
-         :std                     (sample-standard-deviation data)
-         :final-gc-time           (/ (- end-time start-time) 1000000000.0)}))))
+        (when (or (empty? data) (not= (count data) num-timed-runs))
+          (throw (Exception. (str "Unable to complete " num-timed-runs " timed runs. "
+                                  "GC failures " gc-failures ". "
+                                  "Compilation failures " compilation-failures ". "
+                                  "Class loading failures " class-loading-failures ". "))))
+        (let [times (map :time-taken data)]
+          {:timed-runs             (count data)
+           :gc-failures            gc-failures
+           :compilation-failures   compilation-failures
+           :class-loading-failures class-loading-failures
+           ;:mean                    (double (mean data))
+           :median                 (median times)
+           :std                    (sample-standard-deviation times)
+           :final-gc-time          (/ (- end-time start-time) 1000000000.0)
+           :data data})))))
 
 
 (defn bench*
-  "Run multiple sets of trial runs and take the set with the lowest
-   standard deviation"
-  [payload & {:keys [verbose num-sets] :or {num-sets default-num-sets} :as options}]
-  (warn-gc-options!)
-  (warm-up! payload verbose)
+  [payload & {:keys [verbose min-execution-time]
+              :or {min-execution-time default-min-execution-time}
+              :as options}]
 
-  (->> (for [i (range num-sets)]
-         (do
-           (when verbose
-             (println "Calculating set " i))
-           (apply bench-one-set payload (-> options seq flatten))))
-       (sort-by :std)
-       (first)))
+  (let [gc-file-name (get-gc-file-name)]
+    (when-not gc-file-name
+      (println "WARNING. JVM option: -Xloggc: is not set. Keirin is unable to detect "
+              "if a GC occurs during a timed run"))
+
+    (warm-up! payload verbose)
+
+    ;; Calculate number of times to run the payload function
+    (let [{:keys [data] :as result} (iterate-bench payload gc-file-name 1 :num-timed-runs 3 :verbose verbose)
+          time-taken                (-> data first :time-taken)]
+
+      (when-not time-taken
+        (throw (ex-info "Unable to get a clean run" result)))
+
+      (let [time-taken (if (> time-taken 0) time-taken 1)
+            num-executions (if (> time-taken min-execution-time)
+                             1
+                             (inc (quot min-execution-time time-taken)))]
+        (when verbose
+          (println "Timed run of function took " time-taken " millis")
+          (println "Executing function " num-executions))
+
+        (apply bench-one-set payload gc-file-name num-executions (-> options seq flatten))))))
 
 (defmacro bench [payload & options]
   `(bench* (fn [] ~payload) ~@options))
+
+
+(defn quick-bench* [payload & {:keys [num-timed-runs]
+                               :or {num-timed-runs default-num-timed-runs-quick}
+                               :as options}]
+  (apply bench* payload (-> options (merge {:num-timed-runs num-timed-runs}) seq flatten)))
+
+(defmacro quick-bench [payload & options]
+  `(quick-bench* (fn [] ~payload) ~@options))
