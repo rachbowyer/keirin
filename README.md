@@ -20,9 +20,9 @@ Keirin takes a four pronged approach to the problem.
  * Multiple timed runs are taken and the median of these (rather than the mean) is used for the final result..
 
 ## Installation
-If leinigen is being used, add the following dependency to the project.clj
+Keirin is available from Clojars.
 
-     [keirin "0.1.1"]
+[![Clojars Project](https://img.shields.io/clojars/v/keirin.svg)](https://clojars.org/keirin)
 
 Keirin works most optimally if garbage collections are logged to a file. This can be done by adding the following JVM option -Xloggc:gc.out.
 
