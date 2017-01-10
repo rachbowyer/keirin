@@ -35,6 +35,9 @@
 (def ^:private max-compilation-failures 10)
 (def ^:private max-class-loading-failures 5)
 (def ^:private max-gc-attempts 100)
+(def ^:private max-gc-attempts-memory 1000)
+(def ^:private memory-used-iterations 20)
+
 
 ;;;
 ;;; Memory utilities
@@ -113,7 +116,7 @@
 
 
 ;;;
-;;; Bench marking utilities
+;;; Bench marking utilities - speed
 ;;;
 
 
@@ -339,3 +342,40 @@
 
 (defmacro quick-bench [payload & options]
   `(quick-bench* (fn [] ~payload) ~@options))
+
+
+
+;;;
+;;; Bench marking utilities - memory
+;;; Just a proof of concept at the moment. Using to verify functions that should be linear in
+;;; memory usage are linear. Resulting graphs are not considered reliable enough to be published
+;;;
+
+(defn- warm-up-heap []
+  (vec (range 1 100000)))
+
+(defn memory-used-once [f]
+  (let [_             (force-gc max-gc-attempts-memory)
+        before        (heap-used)
+        result        (f)
+        _             (force-gc max-gc-attempts-memory)
+        after         (heap-used)
+        mem-used      (- after before)]
+
+    {:memory-used-bytes mem-used
+     :result-hash-code  (some-> result .hashCode)}))
+
+
+(defn memory-used* [f]
+  (let [warmup        (warm-up-heap)
+        results       (->> (range 0 memory-used-iterations)
+                           (map (fn [_] (memory-used-once f))))
+        m             (median (map :memory-used-bytes results))]
+    {:median-bytes        m
+     :median-megabytes    (/ m 1024.0 1024.0)
+     :data results
+     :warmup-hash (some-> warmup .hashCode)}))
+
+(defmacro memory-used
+  [payload]
+  `(memory-used* (fn [] ~payload)))
