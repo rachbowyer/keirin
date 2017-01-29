@@ -1,4 +1,4 @@
-;; Copyright (c) Rachel Bowyer 2016. All rights reserved.
+;; Copyright ©️ Rachel Bowyer 2016, 2017. All rights reserved.
 ;;
 ;; This program and the accompanying materials
 ;; are made available under the terms of the Eclipse Public License v1.0
@@ -12,7 +12,8 @@
 
 
 ;; Inspired by the article http://www.ibm.com/developerworks/java/library/j-benchmark1/index.html
-;; by Brent Boyer and Criterium bench marking library for Clojure (see above)
+;; by Brent Boyer, the Criterium bench marking library for Clojure (see above) and
+;; http://www.javaworld.com/article/2077496/testing-debugging/java-tip-130--do-you-know-your-data-size-.html
 
 
 (ns keirin.core
@@ -36,7 +37,21 @@
 (def ^:private max-class-loading-failures 5)
 (def ^:private max-gc-attempts 100)
 (def ^:private max-gc-attempts-memory 1000)
-(def ^:private memory-used-iterations 20)
+
+(def ^:private mem-used-iterations 20)
+(def ^:private mem-used-gc-iterations 10)
+(def ^:private mem-used-max-retry-count 1000)
+(def ^:private mem-used-exec-estimates [1 4 16 64 256 1024])
+(def ^:private mem-used-estimate-iterations 5)
+(def ^:private mem-used-estimate-min 1)
+(def ^:private mem-used-estimate-max 1000)
+
+(def ^:private megabyte (* 1024.0 1024.0))
+
+(defn chain-hashes
+  "Combine hash codes"
+  [h1 h2]
+  (bit-xor (if h1 h1 0)  (if h2 h2 0)))
 
 
 ;;;
@@ -351,31 +366,80 @@
 ;;; memory usage are linear. Resulting graphs are not considered reliable enough to be published
 ;;;
 
-(defn- warm-up-heap []
-  (vec (range 1 100000)))
+(defn- warm-up-heap [f]
+  (f))
 
-(defn memory-used-once [f]
-  (let [_             (force-gc max-gc-attempts-memory)
-        before        (heap-used)
-        result        (f)
-        _             (force-gc max-gc-attempts-memory)
-        after         (heap-used)
-        mem-used      (- after before)]
+(defn memory-used-many [f n]
+  (loop [retry-count 0]
+    (let [results (object-array n)
+          _ (dotimes [_ (min n mem-used-gc-iterations)]
+              (force-gc max-gc-attempts-memory))
+          before (heap-used)]
 
-    {:memory-used-bytes mem-used
-     :result-hash-code  (some-> result .hashCode)}))
+      (dotimes [i n]
+        (aset results i (f)))
+
+      (dotimes [_ (min n mem-used-gc-iterations)]
+        (force-gc max-gc-attempts-memory))
+
+      (let [after (heap-used)
+            mem-used (double (/ (- after before) n))]
+
+        (if (or (>= mem-used 0.0)
+                (> retry-count mem-used-max-retry-count))
+          {:memory-used-bytes mem-used
+           :result-hash-code  (some-> results .hashCode)}
+          (recur (inc retry-count)))))))
+
+
+(defn estimate-num-executions-needed [f]
+  (loop [hash-codes  0
+         estimates        mem-used-exec-estimates]
+    (let [[estimate & other-estimates] estimates
+          results         (->> (range 0 mem-used-estimate-iterations)
+                               (map (fn [_] (memory-used-many f 1))))
+          memory          (map :memory-used-bytes results)
+          all-hashes      (conj (map ::result-hash-code results) hash-codes)
+          new-hash-codes  (reduce chain-hashes all-hashes)
+          median          (median memory)
+          sstd            (sample-standard-deviation memory)
+          relative-sstd   (when (> median) (/ sstd (Math/abs median)))]
+
+      (println "estimate " estimate)
+      (println "results " results)
+      (println "memory " memory)
+      (println "median " median)
+      (println "sstd " sstd)
+      (println "relative-sstd " relative-sstd)
+
+      (if (or (empty? other-estimates)
+              (and relative-sstd (< relative-sstd 0.1)))
+        {:estimate (int (min (max (/ (* megabyte) median) mem-used-estimate-min)
+                             mem-used-estimate-max))
+         :result-hash-code new-hash-codes }
+        (recur new-hash-codes other-estimates)))))
+
 
 
 (defn memory-used* [f]
-  (let [warmup        (warm-up-heap)
-        results       (->> (range 0 memory-used-iterations)
-                           (map (fn [_] (memory-used-once f))))
-        m             (median (map :memory-used-bytes results))]
+  (let [warmup                                (warm-up-heap f)
+        {num-executions :estimate
+         exs-hash-code  :result-hash-code}    (estimate-num-executions-needed f)
+        results                               (->> (range 0 mem-used-iterations)
+                                                   (map (fn [_] (memory-used-many f 1))))
+        m                                     (median (map :memory-used-bytes results))
+        warm-up-hashcode                      (some-> warmup .hashCode)
+        all-hash-codes                        (conj (map :result-hash-code results) exs-hash-code warm-up-hashcode)
+        final-hash-code                       (reduce chain-hashes all-hash-codes)]
     {:median-bytes        m
-     :median-megabytes    (/ m 1024.0 1024.0)
+     :median-megabytes    (/ m megabyte)
      :data results
-     :warmup-hash (some-> warmup .hashCode)}))
+     :final-hash-code final-hash-code}))
 
 (defmacro memory-used
   [payload]
   `(memory-used* (fn [] ~payload)))
+
+
+
+
