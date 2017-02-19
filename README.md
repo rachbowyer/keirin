@@ -2,10 +2,8 @@
 
 ![Picture of a Keirin race taking place in a banked velodrome. A motorcycle is at the front; behind it are 6 cyclists](https://github.com/rachbowyer/keirin/blob/master/ColwoodKeirin.jpg)
 
-Microbenchmarking library for Clojure. Microbenchmarking is tricky on the JVM platform as background tasks such as garbage collection can
-distort benchmarks. 
-
-Keirin takes a four pronged approach to the problem.
+Keirin is a microbenchmarking library for Clojure. Microbenchmarking is tricky on the JVM platform as background tasks such as garbage collection can
+distort benchmarks. Keirin takes a four pronged approach to the problem.
 
 1) Takes steps to avoid unpredictable events:
  * warming up the JIT to ensure code is compiled 
