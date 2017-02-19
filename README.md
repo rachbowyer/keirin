@@ -85,6 +85,10 @@ The **k/quick-bench** macro is also provided. This behaves in the same way as th
     ;; Mean absolute deviation (MADS)  426.87 µs
 
 
+See https://github.com/rachbowyer/keirin-demo for an extended demo using Keirin and the Analemma library to graph the performance
+of **vec** as the number of elements in the vector increases.
+
+
 ## Execution overhead
 
 To minimise volatility of results, the function under test is run repeatedly for at least 300ms and the total duration 

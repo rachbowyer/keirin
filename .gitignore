@@ -12,3 +12,4 @@ pom.xml.asc
 .idea
 keirin.iml
 .DS_Store
+gc.out
