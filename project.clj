@@ -5,16 +5,19 @@
 ;; which accompanies this distribution, and is available at
 ;; http://www.eclipse.org/legal/epl-v10.html
 
-(defproject keirin "0.1.3-SNAPSHOT"
+(defproject keirin "1.0.0"
   :description "Microbenchmarking library for Clojure"
   :url "https://github.com/rachbowyer/keirin"
   :license {:name "Eclipse Public License"
             :url "http://www.eclipse.org/legal/epl-v10.html"}
 
-  ;:jvm-opts ^:replace ["-server" "-verbose:gc" "-XX:+PrintCompilation"]
-  ;:jvm-opts ^:replace ["-Dclojure.compiler.direct-linking=true" "-server" "-Xloggc:gc.out" "-XX:-TieredCompilation" "-Xbatch" "-XX:CICompilerCount=1"]
-  :jvm-opts ^:replace ["-XX:-UseCompressedOops" "-Dclojure.compiler.direct-linking=true" "-server" "-Xloggc:gc.out" "-XX:-TieredCompilation" "-Xbatch" "-XX:CICompilerCount=1"]
+  :dependencies [[org.clojure/clojure "1.8.0"]
+                 [org.clojure/tools.logging "0.3.1"]]
 
-  :dependencies [[org.clojure/clojure "1.8.0"]]
   :target-path "target/%s"
-  :profiles {:uberjar {:aot :all}})
+  :profiles {:dev {:global-vars {*warn-on-reflection* true *assert* true}
+                   :jvm-opts ^:replace ["-Dclojure.compiler.direct-linking=true" "-server"
+                                        "-Xloggc:gc.out" "-XX:-TieredCompilation" "-Xbatch" "-XX:CICompilerCount=1"]}
+
+             :uberjar {:jvm-opts ^:replace ["-Dclojure.compiler.direct-linking=true"]
+                       :aot :all}})

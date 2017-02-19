@@ -18,7 +18,8 @@
 
 (ns keirin.core
   (:require [clojure.java.io :as io]
-            [clojure.pprint :as pprint])
+            [clojure.pprint :as pprint]
+            [clojure.tools.logging :as log])
   (:import (java.lang.management ManagementFactory)))
 
 
@@ -28,7 +29,6 @@
 
 (def ^:private warm-up-executions 10)
 (def ^:private warm-up-time 10) ; seconds
-(def ^:private gc-attempts 5)
 (def ^:private default-num-timed-runs 30)
 (def ^:private default-num-timed-runs-quick 7)
 (def ^:private default-min-execution-time 300) ; millis
@@ -36,20 +36,20 @@
 (def ^:private max-compilation-failures 10)
 (def ^:private max-class-loading-failures 5)
 (def ^:private max-gc-attempts 100)
-(def ^:private max-gc-attempts-memory 1000)
+(def ^:private default-reporting :display-humane)  ; other option is :underlying-results
 
-(def ^:private mem-used-iterations 20)
-(def ^:private mem-used-gc-iterations 10)
-(def ^:private mem-used-max-retry-count 1000)
-(def ^:private mem-used-exec-estimates [1 4 16 64 256 1024])
-(def ^:private mem-used-estimate-iterations 5)
-(def ^:private mem-used-estimate-min 1)
-(def ^:private mem-used-estimate-max 1000)
 
-(def ^:private megabyte (* 1024.0 1024.0))
 
-(defn chain-hashes
-  "Combine hash codes"
+;;;
+;;; Hash utilities
+;;;
+
+
+(defn- chain-hashes
+  "Combine hash codes
+   This is designed to be a simple combination of the hashcodes to stop
+   the compiler discarding the results of computations. It is not intended
+   to be a robust method of combining hash codes."
   [h1 h2]
   (bit-xor (if h1 h1 0)  (if h2 h2 0)))
 
@@ -57,11 +57,6 @@
 ;;;
 ;;; Memory utilities
 ;;;
-
-(defn request-gc []
-  (dotimes [_ gc-attempts]
-    (System/runFinalization)
-    (System/gc)))
 
 
 (defn heap-used
@@ -87,18 +82,6 @@
                 (< attempts max-attempts))
          (recur new-memory-used (inc attempts)))))))
 
-(defn free-memory
-  "Free memory - bytes"
-  []
-  (.freeMemory (java.lang.Runtime/getRuntime)))
-
-
-(defn calc-memory-usage [f]
-  (System/gc)
-  (let [before (free-memory)]
-    (f)
-    (/ (- before (free-memory)) 1048576.0)))
-
 
 ;;;
 ;;; Stats functions
@@ -107,37 +90,56 @@
 (defn- sq [x]
   (* x x))
 
-(defn- mean[data]
-  (/ (reduce + data) (count data)))
+(defn abs
+  ^Double [^Double x]
+  (double (Math/abs x)))
 
-(defn- sample-variance [data]
+(defn- mean
+  ^Double [data]
+  {:pre [(seq data)]}
+  (double (/ (reduce + data) (count data))))
+
+(defn- sample-variance
+  "Find the unbiased sample variance"
+  ^Double [data]
+  {:pre [(seq data)]}
   (let [mean (double (mean data))
         num (count data)]
-    (when (> num 1)
-      (/ (transduce (map #(sq (- % mean))) + data)
-         (dec num)))))
+    (if (> num 1)
+      (double (/ (transduce (map #(sq (- % mean))) + data)
+                 (dec num)))
+      0.0)))
 
-(defn- sample-standard-deviation [data]
+(defn- sample-standard-deviation
+  "Sample standard deviation - based on the unbiased sample variance
+   although apparantly ssd is still has some bias"
+  [data]
+  {:pre [(seq data)]}
   (some-> data sample-variance Math/sqrt))
 
-
-(defn- median [data]
+(defn- median
+  "Finds the median of a collection of numbers"
+  ^Double [data]
+  {:pre [(seq data)]}
   (let [sorted-data (sort data)
         len-data (count data)
         mid-point (quot len-data 2)]
     (if (odd? len-data)
-      (nth sorted-data mid-point)
+      (double (nth sorted-data mid-point))
       (/ (+ (nth sorted-data (dec mid-point)) (nth sorted-data mid-point)) 2.0))))
+
+(defn- MAD
+  "Finds the median absolute deviation"
+  ^Double [data]
+  {:pre [(seq data)]}
+  (let [central-point (median data)]
+    (median (map (fn [e] (abs (- e central-point)))
+                 data))))
 
 
 ;;;
 ;;; Bench marking utilities - speed
 ;;;
-
-
-; For unit test
-;(parse-gc-file-name "-Xloggc:gc.out")
-;=> "gc.out"
 
 (defn- parse-gc-file-name [jvm-arg]
   (let [[_ gc-file] (re-find #"^-Xloggc:(.*?)$" jvm-arg)]
@@ -147,28 +149,34 @@
   (let [jvm-options (.getInputArguments (ManagementFactory/getRuntimeMXBean))]
         (some parse-gc-file-name jvm-options)))
 
-
-
 (defn- read-gc-file [gc-file-name]
   (if (.exists (io/as-file gc-file-name))
     (slurp gc-file-name)
     ""))
 
+
+
+;;;
+;;; We need an ultra fast place to store the result of running the "payload" function
+;;; as storing it is included in the timing loop
+;;;
+
 (defprotocol TimedRunResultAccessor
-  (set-result [_ v] )
+  (set-result! [_ v] )
   (get-hash-code [_]))
 
 (deftype TimedRunResultType [^{:unsynchronized-mutable true :tag Object} v]
   TimedRunResultAccessor
-  (set-result [_ value] (set! v value))
+  (set-result! [_ value] (set! v value))
   (get-hash-code [_] (some-> v .hashCode)))
 
 (def timed-run-result (TimedRunResultType. nil))
 
 
+
 (defn- execute-once [f]
   (let [start (System/nanoTime)
-        result (f)]
+        ^Object result (f)]
 
     (let [end (System/nanoTime)]
       {:time-taken (/ (- end start) 1000000.0)
@@ -177,11 +185,10 @@
 
 (defn- execute-many [f n]
   (let [start  (System/nanoTime)]
-
-    (loop [i 0]
-      (when (< i n)
-        (set-result timed-run-result (f))
-        (recur (unchecked-inc i))))
+    (loop [i (long n)]
+      (when (pos? i)
+        (set-result! timed-run-result (f))
+        (recur (unchecked-dec i))))
 
     (let [end (System/nanoTime)]
       {:time-taken (/ (- end start) 1000000.0 n)
@@ -310,22 +317,53 @@
            :gc-failures            gc-failures
            :compilation-failures   compilation-failures
            :class-loading-failures class-loading-failures
-           ;:mean                    (double (mean data))
+           :mean                   (double (mean times))
            :median                 (median times)
            :std                    (sample-standard-deviation times)
+           :MAD                    (MAD times)
            :final-gc-time          (/ (- end-time start-time) 1000000000.0)
            :data data})))))
 
 
+(defn- humane-time
+  "t is time in milliseconds"
+  [t]
+  (let [time-seconds (/ t 1000.0)]
+    (cond
+      (and (< time-seconds 1) (>= time-seconds 0.001))
+      (format "%.2f ms" (* time-seconds 1000.0))
+
+      (and (< time-seconds 0.001) (>= time-seconds 0.000001))
+      (format "%.2f µs" (* time-seconds 1000000.0))
+
+      (and (< time-seconds 0.000001))
+      (format "%.2f ns" (* time-seconds 1000000000.0))
+
+      :else (format "%.2f seconds" time-seconds))))
+
+
+(defn- display-humane [{:keys [median MAD]:as _results}]
+  (println "Time taken (median)" (humane-time median))
+  (println "Mean absolute deviation (MADS) " (humane-time MAD)))
+
+
+(defn- report-results [results reporting]
+  (condp = reporting
+    :display-humane   (display-humane results)
+    :underlying-results results
+    results))
+
+
+
 (defn bench*
-  [payload & {:keys [verbose min-execution-time]
-              :or {min-execution-time default-min-execution-time}
+  [payload & {:keys [verbose min-execution-time reporting]
+              :or {min-execution-time default-min-execution-time reporting default-reporting}
               :as options}]
 
   (let [gc-file-name (get-gc-file-name)]
     (when-not gc-file-name
-      (println "WARNING. JVM option: -Xloggc: is not set. Keirin is unable to detect "
-              "if a GC occurs during a timed run"))
+      (log/warn "JVM option: -Xloggc: is not set. Keirin is unable to detect "
+                "if a GC occurs during a timed run"))
 
     (warm-up! payload verbose)
 
@@ -344,7 +382,8 @@
           (println "Timed run of function took " time-taken " millis")
           (println "Executing function " num-executions))
 
-        (apply bench-one-set payload gc-file-name num-executions (-> options seq flatten))))))
+        (report-results (apply bench-one-set payload gc-file-name num-executions (-> options seq flatten))
+                        reporting)))))
 
 (defmacro bench [payload & options]
   `(bench* (fn [] ~payload) ~@options))
@@ -357,89 +396,5 @@
 
 (defmacro quick-bench [payload & options]
   `(quick-bench* (fn [] ~payload) ~@options))
-
-
-
-;;;
-;;; Bench marking utilities - memory
-;;; Just a proof of concept at the moment. Using to verify functions that should be linear in
-;;; memory usage are linear. Resulting graphs are not considered reliable enough to be published
-;;;
-
-(defn- warm-up-heap [f]
-  (f))
-
-(defn memory-used-many [f n]
-  (loop [retry-count 0]
-    (let [results (object-array n)
-          _ (dotimes [_ (min n mem-used-gc-iterations)]
-              (force-gc max-gc-attempts-memory))
-          before (heap-used)]
-
-      (dotimes [i n]
-        (aset results i (f)))
-
-      (dotimes [_ (min n mem-used-gc-iterations)]
-        (force-gc max-gc-attempts-memory))
-
-      (let [after (heap-used)
-            mem-used (double (/ (- after before) n))]
-
-        (if (or (>= mem-used 0.0)
-                (> retry-count mem-used-max-retry-count))
-          {:memory-used-bytes mem-used
-           :result-hash-code  (some-> results .hashCode)}
-          (recur (inc retry-count)))))))
-
-
-(defn estimate-num-executions-needed [f]
-  (loop [hash-codes  0
-         estimates        mem-used-exec-estimates]
-    (let [[estimate & other-estimates] estimates
-          results         (->> (range 0 mem-used-estimate-iterations)
-                               (map (fn [_] (memory-used-many f 1))))
-          memory          (map :memory-used-bytes results)
-          all-hashes      (conj (map ::result-hash-code results) hash-codes)
-          new-hash-codes  (reduce chain-hashes all-hashes)
-          median          (median memory)
-          sstd            (sample-standard-deviation memory)
-          relative-sstd   (when (> median) (/ sstd (Math/abs median)))]
-
-      (println "estimate " estimate)
-      (println "results " results)
-      (println "memory " memory)
-      (println "median " median)
-      (println "sstd " sstd)
-      (println "relative-sstd " relative-sstd)
-
-      (if (or (empty? other-estimates)
-              (and relative-sstd (< relative-sstd 0.1)))
-        {:estimate (int (min (max (/ (* megabyte) median) mem-used-estimate-min)
-                             mem-used-estimate-max))
-         :result-hash-code new-hash-codes }
-        (recur new-hash-codes other-estimates)))))
-
-
-
-(defn memory-used* [f]
-  (let [warmup                                (warm-up-heap f)
-        {num-executions :estimate
-         exs-hash-code  :result-hash-code}    (estimate-num-executions-needed f)
-        results                               (->> (range 0 mem-used-iterations)
-                                                   (map (fn [_] (memory-used-many f 1))))
-        m                                     (median (map :memory-used-bytes results))
-        warm-up-hashcode                      (some-> warmup .hashCode)
-        all-hash-codes                        (conj (map :result-hash-code results) exs-hash-code warm-up-hashcode)
-        final-hash-code                       (reduce chain-hashes all-hash-codes)]
-    {:median-bytes        m
-     :median-megabytes    (/ m megabyte)
-     :data results
-     :final-hash-code final-hash-code}))
-
-(defmacro memory-used
-  [payload]
-  `(memory-used* (fn [] ~payload)))
-
-
 
 
