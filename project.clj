@@ -5,7 +5,7 @@
 ;; which accompanies this distribution, and is available at
 ;; http://www.eclipse.org/legal/epl-v10.html
 
-(defproject keirin "1.0.0"
+(defproject keirin "1.1.0"
   :description "Microbenchmarking library for Clojure"
   :url "https://github.com/rachbowyer/keirin"
   :license {:name "Eclipse Public License"
@@ -15,9 +15,10 @@
                  [org.clojure/tools.logging "0.3.1"]]
 
   :target-path "target/%s"
+
   :profiles {:dev {:global-vars {*warn-on-reflection* true *assert* true}
                    :jvm-opts ^:replace ["-Dclojure.compiler.direct-linking=true" "-server"
-                                        "-Xloggc:gc.out" "-XX:-TieredCompilation" "-Xbatch" "-XX:CICompilerCount=1"]}
+                                        "-Xloggc:gc.out" "-XX:-TieredCompilation" "-Xbatch"]}
 
              :uberjar {:jvm-opts ^:replace ["-Dclojure.compiler.direct-linking=true"]
                        :aot :all}})
