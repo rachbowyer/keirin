@@ -3,7 +3,7 @@
 ![Picture of a Keirin race taking place in a banked velodrome. A motorcycle is at the front; behind it are 6 cyclists](https://github.com/rachbowyer/keirin/blob/master/ColwoodKeirin.jpg)
 
 Keirin is a microbenchmarking library for Clojure. Microbenchmarking is tricky on the JVM platform as background tasks such as garbage collection can
-distort benchmarks. Keirin takes a four pronged approach to the problem.
+distort benchmarks. Keirin takes a five pronged approach to the problem.
 
 1) Takes steps to avoid unpredictable events:
  * warming up the JIT to ensure code is compiled 
@@ -18,6 +18,9 @@ distort benchmarks. Keirin takes a four pronged approach to the problem.
  * Multiple timed runs are taken and the median of these (rather than the mean) is used for the final result. The median is more robust than the mean in the event of outliers.
  * MADS (["Median absolute deviation"](https://en.wikipedia.org/wiki/Median_absolute_deviation)) is provided as a measure of the variance, rather than the
  sample standard deviation. Again MADS is more robust against outliers than the sample standard deviation.
+
+5) If required, estimating the timing overhead unavoidably included in the times for the benchmarked function.
+
 
 ## Installation
 Keirin is available from Clojars.
