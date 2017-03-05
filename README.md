@@ -142,9 +142,8 @@ Keirin does not attempt to automatically compensate for this overhead, but if th
  3) Configure the JVM correctly. For example the following options are useful:
   * "-server" - enables server side JVM optimisations 
   * "-Xbatch" - disable background compilation
-  * " -Xloggc:gc.out" - logs GC to a file where Keirin can read them
-  * "-XX:CICompilerCount=1" - only 1 thread allowed to compile code
-  * "-XX:-TieredCompilation" - disables tiered compilation. Need to allow only 1 thread for the compiled code. 
+  * "-Xloggc:gc.out" - logs GC to a file where Keirin can read them
+  * "-XX:-TieredCompilation" - disables tiered compilation.
   * "-Xmx" - sets the maximum heap size. Set as large as possible for your machine as this reduces the chance of garabage collections.
   * "-Xms" - sets the minimum heap size. Set to the same value as Xmx as this reduces the change of garbage collections.
 
