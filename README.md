@@ -40,11 +40,11 @@ And to benchmark some code call **k/bench** e.g.
     ;; Mean absolute deviation (MADS)  533.19 µs
     
         
-**k/bench** takes four optional arguments: 
- * :reporting. Defaults to :display-humane which shows the execution time and the mean absolute deviation. Alternatively :reporting can be :underlying-results, which
-   returns more detailed information as a Clojure hashmap. This can be useful if the results need to be processed by Clojure code e.g. to generate a graph
+**k/bench** takes five optional arguments: 
+ * :calc-timing-overhead calculates the overhead due to the timing loop. See the section *Execution overhead* below for more details.
+ * :minimum-execution-time is the minimum time in milliseconds for which the benchmarked function will be run. Defaults to 300ms. If there are problems with garbage collection then this parameter should be reduced.
+ * :reporting. Defaults to :display-humane which shows the execution time and the mean absolute deviation. Alternatively :reporting can be :underlying-results, which returns more detailed information as a Clojure hashmap. This can be useful if the results need to be processed by Clojure code e.g. to generate a graph
  * :timed-runs is the number of timed runs required. Defaults to 30.
- * :minimum-execution-time is the minimum time in milliseconds for which the benchmarked function will be run. Defaults to 300ms. If there are problems with garbage collection then this parameter should be reduced. 
  * :verbose a boolean, which provides extended output. 
 
 For example: 
@@ -91,20 +91,48 @@ of **vec** as the number of elements in the vector increases.
 
 ## Execution overhead
 
-To minimise volatility of results, the function under test is run repeatedly for at least 300ms and the total duration 
-of the run is timed. This means unfortunately that there is some bias added to the results as parts of the timing loop 
-are timed as well. Keirin does not attempt to compensate for this as the bias is in nano seconds on typical hardware.
-If bias is a concern, then the overhead of the timing loop can be measured by running:
+To minimise the volatility of results, and also to increase accuracy for very fast functions, the function under test is run repeatedly for at least 300ms and the total duration of the run is timed. This means unfortunately that there is some overhead added to the results as parts of the timing loop 
+are timed as well. 
 
-    (bench 1)
-    ;; Time taken (median) 2.84 ns
-    ;; Mean absolute deviation (MADS)  0.76 ns
+Also on most (if not all computers) System/nanoTime, which Keirin uses to time the function is not nano second precise and also introduces its own overhead. 
+
+For example:
+
+    (bench (System/nanoTime))
+    ;; Time taken (median) 38.38 ns
+    ;; Mean absolute deviation (MADS)  0.57 ns
+
+and
+
+     (let [timings (doall (for [_ (range 1000)]
+                       (let [start (System/nanoTime)
+                             end   (System/nanoTime)]
+                             (- end start))))]
+  
+       (println "Range " (apply min timings) " to " (apply max timings) " nanos"))
+     ;; Range  50  to  374  nanos
+
+The overhead included in the number that Keirin calculates depends on the number of times the function under test is executed within a timed run and therefore differs for different functions and also for different values for :minimum-execution-time.
+
+In my tests (YMMV) the amount of the overhead varies from 2 ns to 2 µs with the overhead increasing with slower functions. The maximum overhead I have seen is around 15% for functions that are running in around 25 nanos, dropping to less than 0.001% as the function execution time increases.
+
+Keirin does not attempt to automatically compensate for this overhead, but if the execution overhead is a concern, pass in the flag :calc-timing-overhead and Keirin will provide an estimate of the overhead.
+
+
+    (bench (vector-of :int 1 2 3 4) :calc-timing-overhead true)
+    ;; Time taken (median) 25.90 ns
+    ;; Mean absolute deviation (MADS)  0.62 ns
+    ;; Timing loop overhead  14.17% (3.67 ns)
+    
+    (bench (Thread/sleep 100) :calc-timing-overhead true)
+    ;; Time taken (median) 103.45 ms
+    ;; Mean absolute deviation (MADS)  167.87 µs
+    ;; Timing loop overhead  0.00% (1.96 µs)
 
 
 ## Benchmarking best practice
 
- 1) Run on a machine with multiple cores, ample memory, which does not have a GUI and is quiet. This minimizes the chance of the OS or JVM stealing CPU from the benchmarking.
-    For example an unused server class machine. Machines in the Cloud are not considered reliable for benchmarking purposes
+ 1) Run on a machine with multiple cores, ample memory, which does not have a GUI and is quiet. This minimizes the chance of the OS or JVM stealing CPU from the benchmarking. For example use an unused server class machine. Machines in the Cloud are not considered reliable for benchmarking purposes.
    
  2) Compile down to a jar and run the code as a jar, rather than run from the REPL as the REPL introduces noise.
 
