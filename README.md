@@ -45,14 +45,14 @@ And to benchmark some code call **k/bench** e.g.
         
 **k/bench** takes five optional arguments: 
  * :calc-timing-overhead calculates the overhead due to the timing loop. See the section *Execution overhead* below for more details.
- * :minimum-execution-time is the minimum time in milliseconds for which the benchmarked function will be run. Defaults to 300ms. If there are problems with garbage collection then this parameter should be reduced.
+ * :min-execution-time is the minimum time in milliseconds for which the benchmarked function will be run. Defaults to 300ms. If there are problems with garbage collection then this parameter should be reduced.
  * :reporting. Defaults to :display-humane which shows the execution time and the mean absolute deviation. Alternatively :reporting can be :underlying-results, which returns more detailed information as a Clojure hashmap. This can be useful if the results need to be processed by Clojure code e.g. to generate a graph
  * :timed-runs is the number of timed runs required. Defaults to 30.
  * :verbose a boolean, which provides extended output. 
 
 For example: 
 
-    (k/bench (Thread/sleep 500) :num-timed-runs 5 :minimum-execution-time 1000 :reporting :underlying-results :verbose true)
+    (k/bench (Thread/sleep 500) :num-timed-runs 5 :min-execution-time 1000 :reporting :underlying-results :verbose true)
     
     
 If :reporting is set to :underlying-results then the following output is generated:
@@ -115,7 +115,7 @@ and
        (println "Range " (apply min timings) " to " (apply max timings) " nanos"))
      ;; Range  50  to  374  nanos
 
-The overhead included in the number that Keirin calculates depends on the number of times the function under test is executed within a timed run and therefore differs for different functions and also for different values for :minimum-execution-time.
+The overhead included in the number that Keirin calculates depends on the number of times the function under test is executed within a timed run and therefore differs for different functions and also for different values for :min-execution-time.
 
 In my tests (YMMV) the amount of the overhead varies from 2 ns to 2 µs with the overhead increasing with slower functions. The maximum overhead I have seen is around 15% for functions that are running in around 25 nanos, dropping to less than 0.001% as the function execution time increases.
 
