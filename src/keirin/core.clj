@@ -1,4 +1,4 @@
-;; Copyright ©️ Rachel Bowyer 2016, 2017. All rights reserved.
+;; Copyright ©️ Rachel Bowyer 2016, 2017, 2020. All rights reserved.
 ;;
 ;; This program and the accompanying materials
 ;; are made available under the terms of the Eclipse Public License v1.0
@@ -51,7 +51,7 @@
    the compiler discarding the results of computations. It is not intended
    to be a robust method of combining hash codes."
   [h1 h2]
-  (bit-xor (if h1 h1 0)  (if h2 h2 0)))
+  (bit-xor (or h1 0) (or h2 0)))
 
 
 ;;;
@@ -142,7 +142,7 @@
 ;;;
 
 (defn- parse-gc-file-name [jvm-arg]
-  (let [[_ gc-file] (re-find #"^-Xloggc:(.*?)$" jvm-arg)]
+  (let [[_ gc-file] (re-find #"^-Xlog:gc:(.*?)$" jvm-arg)]
     gc-file))
 
 (defn- get-gc-file-name []
@@ -346,7 +346,7 @@
       (and (< time-seconds 0.001) (>= time-seconds 0.000001))
       (format "%.2f µs" (* time-seconds 1000000.0))
 
-      (and (< time-seconds 0.000001))
+      (< time-seconds 0.000001)
       (format "%.2f ns" (* time-seconds 1000000000.0))
 
       :else (format "%.2f seconds" time-seconds))))
@@ -412,7 +412,7 @@
 
 (defn- calculate-timing-overhead
   [n gc-file-name & {:keys [verbose] :as options}]
-  (let [one   (Integer. 1)
+  (let [one   (int 1)
         dummy (fn [] one)]
 
     (when verbose
@@ -465,5 +465,3 @@
 
 (defmacro quick-bench [payload & options]
   `(quick-bench* (fn [] ~payload) ~@options))
-
-

@@ -27,7 +27,9 @@ Keirin is available from Clojars.
 
 [![Clojars Project](https://img.shields.io/clojars/v/keirin.svg)](https://clojars.org/keirin)
 
-Keirin works most optimally if garbage collections are logged to a file. This can be done by adding the following JVM option -Xloggc:gc.out.
+Keirin works most optimally if garbage collections are logged to a file. This can be done by adding the following 
+JVM option -Xlog:gc:gc.out. The parser for JVM properties is pretty naive and setting -Xlog:gc options is 
+likely to break it.
 
 
 ## Usage
@@ -142,7 +144,7 @@ Keirin does not attempt to automatically compensate for this overhead, but if th
  3) Configure the JVM correctly. For example the following options are useful:
   * "-server" - enables server side JVM optimisations 
   * "-Xbatch" - disable background compilation
-  * "-Xloggc:gc.out" - logs GC to a file where Keirin can read them
+  * "-Xlog:gc:gc.out" - logs GC to a file where Keirin can read them
   * "-XX:-TieredCompilation" - disables tiered compilation.
   * "-Xmx" - sets the maximum heap size. Set as large as possible for your machine as this reduces the chance of garabage collections.
   * "-Xms" - sets the minimum heap size. Set to the same value as Xmx as this reduces the change of garbage collections.

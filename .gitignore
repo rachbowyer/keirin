@@ -10,6 +10,7 @@ pom.xml.asc
 .hgignore
 .hg/
 .idea
-keirin.iml
+*.iml
 .DS_Store
+gc.out.*
 gc.out

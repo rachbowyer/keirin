@@ -1,4 +1,4 @@
-;; Copyright ©️ Rachel Bowyer 2017. All rights reserved.
+;; Copyright ©️ Rachel Bowyer 2017, 2020. All rights reserved.
 ;;
 ;; This program and the accompanying materials
 ;; are made available under the terms of the Eclipse Public License v1.0
@@ -72,4 +72,4 @@
       [2 8 4 6]   2.0))
 
 (deftest parse-gc-file-name-test
-  (is (= "gc.out" (parse-gc-file-name "-Xloggc:gc.out"))))
+  (is (= "gc.out" (parse-gc-file-name "-Xlog:gc:gc.out"))))
