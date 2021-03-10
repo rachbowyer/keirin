@@ -16,7 +16,7 @@ distort benchmarks. Keirin takes a five pronged approach to the problem.
 
 4) Using statistical techniques to minimize the impact of outliers:
  * Multiple timed runs are taken and the median of these (rather than the mean) is used for the final result. The median is more robust than the mean in the event of outliers.
- * MADS (["Median absolute deviation"](https://en.wikipedia.org/wiki/Median_absolute_deviation)) is provided as a measure of the variance, rather than the
+ * MAD (["Median absolute deviation"](https://en.wikipedia.org/wiki/Median_absolute_deviation)) is provided as a measure of the variance, rather than the
  sample standard deviation. Again MADS is more robust against outliers than the sample standard deviation.
 
 5) If required, estimating the timing overhead unavoidably included in the times for the benchmarked function.
@@ -25,7 +25,7 @@ distort benchmarks. Keirin takes a five pronged approach to the problem.
 ## Installation
 Keirin is available from Clojars.
 
-[![Clojars Project](https://img.shields.io/clojars/v/keirin.svg)](https://clojars.org/keirin)
+[![Clojars Project](https://img.shields.io/clojars/v/rachbowyer/keirin.svg)](https://clojars.org/rachbowyer/keirin)
 
 Keirin works most optimally if garbage collections are logged to a file. This can be done by adding the following 
 JVM option -Xlog:gc:gc.out. The parser for JVM properties is pretty naive and setting -Xlog:gc options is 
@@ -163,8 +163,9 @@ The hope with Keirin is to provide more reliable results than Criterium, in part
 Distributed under the Eclipse Public License either version 1.0.
 
 
-## Image of a Keirin race
-Courtesy of [FigBug] (https://en.wikipedia.org/wiki/User:FigBug) used under the terms of CC BY-SA 3.0.
+## Image of a Keirin race
+
+Courtesy of [FigBug](https://en.wikipedia.org/wiki/User:FigBug) used under the terms of CC BY-SA 3.0.
 
 
 
