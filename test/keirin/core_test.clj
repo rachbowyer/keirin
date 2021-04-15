@@ -1,4 +1,4 @@
-;; Copyright ©️ Rachel Bowyer 2017, 2020. All rights reserved.
+;; Copyright ©️ Rachel Bowyer 2017, 2021. All rights reserved.
 ;;
 ;; This program and the accompanying materials
 ;; are made available under the terms of the Eclipse Public License v1.0
@@ -9,7 +9,6 @@
   (:require [keirin.core :as kc]
             [clojure.test :refer :all]))
 
-(def ^:private chain-hashes #'kc/chain-hashes)
 (def ^:private sq #'kc/sq)
 (def ^:private abs #'kc/abs)
 (def ^:private mean #'kc/mean)
@@ -18,12 +17,6 @@
 (def ^:private median #'kc/median)
 (def ^:private MAD #'kc/MAD)
 (def ^:private parse-gc-file-name #'kc/parse-gc-file-name)
-
-
-(deftest chain-hashes-test
-  (is (= 0 (chain-hashes nil nil)) "Handles nil")
-  (is (= 0 (chain-hashes 2 2)) "xor behaviour")
-  (is (= 3 (chain-hashes 1 2)) "xor behaviour"))
 
 (deftest sq-test
   (are [x r] (= r (sq x))

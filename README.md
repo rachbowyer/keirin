@@ -1,11 +1,11 @@
 # Keirin
 
-![Picture of a Keirin race taking place in a banked velodrome. A motorcycle is at the front; behind it are 6 cyclists](https://github.com/rachbowyer/keirin/blob/master/ColwoodKeirin.jpg)
+![Picture of a female track cyclist taking part in a Keirin race. The background is blurred due to her speed.](https://static.wixstatic.com/media/3466eb_ce384529b4fc4cbc913b6cef5d18de37~mv2.jpg/v1/crop/x_1379,y_0,w_3863,h_3854/fill/w_339,h_338,al_c,q_80,usm_0.66_1.00_0.01/UCI_Track_World_Championships_2020-02-29.webp)
 
 Keirin is a microbenchmarking library for Clojure. Microbenchmarking is tricky on the JVM platform as background tasks such as garbage collection can
 distort benchmarks. Keirin takes a five pronged approach to the problem.
 
-1) Takes steps to avoid unpredictable events:
+1) Taking steps to avoid unpredictable events:
  * warming up the JIT to ensure code is compiled 
  * forcing a GC to reduce the chance of a GC during a test run
 
@@ -17,7 +17,7 @@ distort benchmarks. Keirin takes a five pronged approach to the problem.
 4) Using statistical techniques to minimize the impact of outliers:
  * Multiple timed runs are taken and the median of these (rather than the mean) is used for the final result. The median is more robust than the mean in the event of outliers.
  * MAD (["Median absolute deviation"](https://en.wikipedia.org/wiki/Median_absolute_deviation)) is provided as a measure of the variance, rather than the
- sample standard deviation. Again MADS is more robust against outliers than the sample standard deviation.
+ sample standard deviation. Again MAD is more robust against outliers than the sample standard deviation.
 
 5) If required, estimating the timing overhead unavoidably included in the times for the benchmarked function.
 
@@ -146,26 +146,23 @@ Keirin does not attempt to automatically compensate for this overhead, but if th
   * "-Xbatch" - disable background compilation
   * "-Xlog:gc:gc.out" - logs GC to a file where Keirin can read them
   * "-XX:-TieredCompilation" - disables tiered compilation.
-  * "-Xmx" - sets the maximum heap size. Set as large as possible for your machine as this reduces the chance of garabage collections.
-  * "-Xms" - sets the minimum heap size. Set to the same value as Xmx as this reduces the change of garbage collections.
+  * "-Xmx" - sets the maximum heap size. Set as large as possible for your machine as this reduces the chance of garbage collections.
+  * "-Xms" - sets the minimum heap size. Set to the same value as Xmx as this reduces the chance of garbage collections.
 
 
 ## Rationale for Keirin
-["Criterium"](https://github.com/hugoduncan/criterium) is considered the gold standard for microbenchmarking on Clojure. Criterium achieves a steady state (code not being compiled etc.) before taking sample times. Criterium then applies statistical analysis to determine the reliability of the results.
 
-Keirin takes a different approach to the problem. Rather than achieve a steady state, Keirin focuses on minimizing noise, detecting it when it occurs, and reducing the impact of the noise on the results. 
-
-The hope with Keirin is to provide more reliable results than Criterium, in particular when there is noise from garbage collections.
+See this [article](https://www.bowyer.info/clojure-keirin) on my website.
 
 
 ## License for Keirin
 
-Distributed under the Eclipse Public License either version 1.0.
+Distributed under the Eclipse Public License version 1.0.
 
 
-## Image of a Keirin race
+<hr>
 
-Courtesy of [FigBug](https://en.wikipedia.org/wiki/User:FigBug) used under the terms of CC BY-SA 3.0.
 
+<small>Picture of a cyclist courtesy of Tim Rademacher. Used under the Creative Commons [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/) licence.</small>
 
 
