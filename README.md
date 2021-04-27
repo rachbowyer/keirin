@@ -163,6 +163,6 @@ Distributed under the Eclipse Public License version 1.0.
 <hr>
 
 
-<small>Picture of a cyclist courtesy of Tim Rademacher. Used under the Creative Commons [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/) licence.</small>
+<sup>Picture of a cyclist courtesy of Tim Rademacher. Used under the Creative Commons [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/) licence.</sup>
 
 
